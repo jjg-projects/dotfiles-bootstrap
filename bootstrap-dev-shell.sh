@@ -10,9 +10,14 @@
 # Does NOT chsh — run `chsh -s "$(command -v zsh)"` manually after verifying.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/main/bootstrap-dev-shell.sh | bash
-#   # or
+#   # pinned to a release tag (recommended — immutable):
+#   curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.1.0/bootstrap-dev-shell.sh | bash
+#
+#   # or from a local clone:
 #   ./bootstrap-dev-shell.sh
+#
+# Tags follow semver. Latest release:
+#   https://github.com/jjg-projects/dotfiles-bootstrap/releases/latest
 
 set -euo pipefail
 
