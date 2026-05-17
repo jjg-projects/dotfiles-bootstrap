@@ -4,14 +4,14 @@
 # Idempotent dev shell installer for Linux (Ubuntu 22.04+) and macOS.
 # Installs: zsh, antidote, starship, fnm + Node LTS, uv, rustup + stable Rust,
 # rtk, ccstatusline, caveman, bw (Bitwarden CLI), chezmoi, fzf, bat, eza,
-# zoxide, ripgrep, pip3, pulumi, tailscale.
+# glow, zoxide, ripgrep, pip3, pulumi, tailscale.
 #
 # Safe to re-run: each step checks for prior install before acting.
 # Does NOT chsh — run `chsh -s "$(command -v zsh)"` manually after verifying.
 #
 # Usage:
 #   # pinned to a release tag (recommended — immutable):
-#   curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.1.1/bootstrap-dev-shell.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.2.0/bootstrap-dev-shell.sh | bash
 #
 #   # or from a local clone:
 #   ./bootstrap-dev-shell.sh
@@ -163,6 +163,45 @@ install_eza() {
     chmod +x "$LOCAL_BIN/eza"
     rm -rf "$tmp"
   fi
+}
+
+install_glow() {
+  # Charm's terminal markdown renderer. Useful for reading README files inline
+  # and previewing markdown in pipelines (e.g. `glow README.md`, `cat foo.md | glow -`).
+  if have glow; then skip "glow"; return; fi
+  inst "glow (terminal markdown renderer)"
+  if [[ "$PLATFORM" == "darwin" ]] && have brew; then
+    brew install glow && return
+  fi
+  # Linux: download the release tarball from GitHub. Charm does publish an
+  # apt repo, but it requires sudo + keyring setup; a static binary in
+  # ~/.local/bin keeps the install side-effect-free.
+  local arch tmp url ver bin
+  case "$(uname -m)" in
+    x86_64)        arch="x86_64" ;;
+    aarch64|arm64) arch="arm64" ;;
+    *) die "unsupported glow arch: $(uname -m)" ;;
+  esac
+  # Resolve latest version from the GitHub API. Falls back to a known-good
+  # pin if the API is rate-limited or unreachable.
+  ver="$(curl --fail --silent --show-error \
+    https://api.github.com/repos/charmbracelet/glow/releases/latest 2>/dev/null \
+    | sed -nE 's/.*"tag_name":[[:space:]]*"v([^"]+)".*/\1/p' | head -1)"
+  if [[ -z "$ver" ]]; then
+    warn "glow: GitHub API lookup failed, falling back to pinned v2.1.1"
+    ver="2.1.1"
+  fi
+  tmp="$(mktemp -d)"
+  url="https://github.com/charmbracelet/glow/releases/download/v${ver}/glow_${ver}_Linux_${arch}.tar.gz"
+  curl --fail --location --silent --show-error -o "$tmp/glow.tgz" "$url"
+  tar -xzf "$tmp/glow.tgz" -C "$tmp"
+  # Tarball layout has shifted across releases (sometimes flat, sometimes a
+  # versioned subdir); locate the binary instead of hardcoding the path.
+  bin="$(find "$tmp" -maxdepth 3 -name glow -type f -perm -u+x | head -1)"
+  [[ -z "$bin" ]] && die "glow: binary not found in extracted tarball"
+  mv "$bin" "$LOCAL_BIN/glow"
+  chmod +x "$LOCAL_BIN/glow"
+  rm -rf "$tmp"
 }
 
 install_zoxide() {
@@ -335,6 +374,7 @@ main() {
   install_uv
   install_rust
   install_eza
+  install_glow
   install_zoxide
   install_chezmoi
   install_rtk

@@ -7,7 +7,7 @@ Idempotent dev shell installer for Linux (Ubuntu 22.04+) and macOS. Sets up a pr
 Pin to a release tag — immutable, defends against future supply-chain compromise of this repo:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.1.1/bootstrap-dev-shell.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.2.0/bootstrap-dev-shell.sh | bash
 ```
 
 Latest version: see [Releases](https://github.com/jjg-projects/dotfiles-bootstrap/releases/latest).
@@ -26,7 +26,7 @@ Safe to re-run. Each step checks for prior install before acting.
 | Claude Code | `caveman`, `rtk`, `ccstatusline` | Token-compression skill, CLI proxy, statusline formatter |
 | Secrets | `bw` | Bitwarden CLI |
 | Dotfiles | `chezmoi` | Cross-machine dotfiles manager |
-| CLI QoL | `fzf`, `bat`, `eza`, `zoxide`, `ripgrep`, `pip3` | Standard set |
+| CLI QoL | `fzf`, `bat`, `eza`, `glow`, `zoxide`, `ripgrep`, `pip3` | Standard set + terminal markdown renderer |
 | IaC | `pulumi` | Infrastructure as Code |
 | Networking | `tailscale` | Mesh VPN (no `tailscale up` — interactive) |
 
