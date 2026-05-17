@@ -11,7 +11,7 @@
 #
 # Usage:
 #   # pinned to a release tag (recommended — immutable):
-#   curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.1.0/bootstrap-dev-shell.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.1.1/bootstrap-dev-shell.sh | bash
 #
 #   # or from a local clone:
 #   ./bootstrap-dev-shell.sh
@@ -279,14 +279,22 @@ install_rust() {
 }
 
 install_caveman() {
-  # Caveman is a Claude Code plugin (also installs into codex/gemini/etc.
-  # when their CLIs are on PATH at install time). No CLI lands on PATH, so
-  # probe the Claude plugin registry instead. To pick up newly-installed
-  # agents on subsequent runs, delete the registry entry or run:
-  #   npx -y "github:JuliusBrussee/caveman" --non-interactive
+  # Caveman is a Claude Code plugin and also installs into codex/gemini/etc.
+  # when their CLIs are on PATH at install time. No CLI lands on PATH, so
+  # probe each target's registry/extension dir. To force a reinstall:
+  #   rm -rf ~/.gemini/extensions/caveman ~/.codex/extensions/caveman
+  #   # and remove the "caveman@caveman" entry from
+  #   # ~/.claude/plugins/installed_plugins.json
   local plugins_json="$HOME/.claude/plugins/installed_plugins.json"
-  if [[ -f "$plugins_json" ]] && grep -q '"caveman"' "$plugins_json" 2>/dev/null; then
-    skip "caveman"
+  # Claude plugin registry stores keys as "<name>@<source>", e.g. "caveman@caveman".
+  if [[ -f "$plugins_json" ]] && grep -q '"caveman@' "$plugins_json" 2>/dev/null; then
+    skip "caveman (claude)"
+    return
+  fi
+  # Even when not in the Claude registry, the npx installer refuses to proceed
+  # if the gemini/codex extension dir already exists. Treat either as installed.
+  if [[ -d "$HOME/.gemini/extensions/caveman" ]] || [[ -d "$HOME/.codex/extensions/caveman" ]]; then
+    skip "caveman (gemini/codex)"
     return
   fi
   if ! have npx; then die "npx missing — install_node_lts must run first"; fi

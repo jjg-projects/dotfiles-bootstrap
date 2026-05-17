@@ -7,7 +7,7 @@ Idempotent dev shell installer for Linux (Ubuntu 22.04+) and macOS. Sets up a pr
 Pin to a release tag — immutable, defends against future supply-chain compromise of this repo:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.1.0/bootstrap-dev-shell.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jjg-projects/dotfiles-bootstrap/v0.1.1/bootstrap-dev-shell.sh | bash
 ```
 
 Latest version: see [Releases](https://github.com/jjg-projects/dotfiles-bootstrap/releases/latest).
