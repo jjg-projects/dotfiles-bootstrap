@@ -1,0 +1,74 @@
+name: Caveman Review
+
+# Caveman-style code review on every PR — terse, one-line-per-finding,
+# severity-emoji prefixed, no praise. Single-LLM (claude-code) review,
+# stylistically counterpointing the (optional) full-narrative review
+# pattern. Useful for fast triage signal.
+#
+# Setup: needs the `CLAUDE_CODE_OAUTH_TOKEN` secret (repo or org-level).
+#
+# Skip review by:
+#   - Marking PR as draft, OR
+#   - Prefixing PR title with `[skip-caveman]`
+#
+# Disable entirely: just delete this file. No other plumbing depends on it.
+#
+# Security note: all `github.event.*` references are limited to numeric PR
+# number and `github.repository` (controlled by GitHub). No untrusted
+# user-content (titles, bodies, branch refs) is interpolated into shell
+# `run:` blocks.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+        type: string
+
+jobs:
+  caveman-review:
+    # Self-hosted ARM64 Linux runner (Hetzner CAX21, jjg-runner-arm-1).
+    # Org-scoped; reachable from all jjg-projects repos.
+    runs-on: [self-hosted, linux, arm64]
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+       !startsWith(github.event.pull_request.title, '[skip-caveman]'))
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Caveman Review
+        id: caveman-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+
+            Caveman code review on this PR.
+
+            1. Read the diff (you have `Bash(gh pr diff:*)`).
+            2. Apply caveman reviewer rules:
+               - Format: `path:line: <emoji> <severity>: <problem>. <fix>.`
+               - Severities: 🔴 P0 (bug/security/regression), 🟡 P1 (correctness/perf risk), 🔵 P2 (smell/nit).
+               - No praise. No scope-creep. No compliments. Skip pure formatting.
+               - If clean: write only "🪨 Clean. No findings."
+            3. Post the review via `gh pr comment` with body prefixed:
+               "🪨 Caveman review (auto, <UTC ISO timestamp>)"
+
+          claude_args: |
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(date:*)"
