@@ -1,0 +1,92 @@
+name: Caveman Review
+
+# Caveman-style code review on every PR. Stylistic counterpoint to
+# `claude-code-review.yml` (deep ADR-coherence review): caveman-review is
+# terse, one-line-per-finding, no praise, severity-emoji prefixed. Useful
+# for fast triage and as a second voice (multi-lineage instinct from H1).
+#
+# Setup: reuses the `CLAUDE_CODE_OAUTH_TOKEN` secret already configured for
+# the other claude-action workflows. No extra setup needed.
+#
+# Skip review by:
+#   - Marking PR as draft, OR
+#   - Prefixing PR title with `[skip-caveman]`
+#
+# Disable entirely: just delete this file. No other plumbing depends on it.
+#
+# Contributor docs: see `docs/contributing/caveman-review.md`.
+#
+# Security note: all `github.event.*` references in this file are limited
+# to numeric PR number and `github.repository` (controlled by GitHub).
+# No untrusted user-content (titles, bodies, branch refs) is interpolated
+# into shell `run:` blocks.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: PR number to review
+        required: true
+        type: string
+
+jobs:
+  caveman-review:
+    # Self-hosted ARM64 Linux runner (Hetzner CAX21) — same as claude.yml
+    # and claude-code-review.yml. Pattern matches the rest of the repo.
+    runs-on: [self-hosted, linux, arm64]
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+       !startsWith(github.event.pull_request.title, '[skip-caveman]'))
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Verify CLAUDE_CODE_OAUTH_TOKEN secret present
+        # Fail fast if the secret is missing — otherwise anthropics/claude-code-action
+        # silently no-ops in ~12s and the check reports green even though no
+        # review ran. Catches missing org/repo secret distribution to new repos.
+        env:
+          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$OAUTH_TOKEN" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN secret missing on this repo."
+            echo "Fix: add as org-level secret at https://github.com/organizations/jjg-projects/settings/secrets/actions"
+            echo "Or per-repo: gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo \$REPO"
+            exit 1
+          fi
+          echo "ok (len=${#OAUTH_TOKEN})"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Run Caveman Review
+        id: caveman-review
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          track_progress: true
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+
+            Caveman code review on this PR.
+
+            1. Read the diff (you have `Bash(gh pr diff:*)`).
+            2. Apply caveman reviewer rules:
+               - Format: `path:line: <emoji> <severity>: <problem>. <fix>.`
+               - Severities: 🔴 P0 (bug/security/regression), 🟡 P1 (correctness/perf risk), 🔵 P2 (smell/nit).
+               - No praise. No scope-creep. No compliments. Skip pure formatting.
+               - If clean: write only "🪨 Clean. No findings."
+            3. Post the review via `gh pr comment` with body prefixed:
+               "🪨 Caveman review (auto, <UTC ISO timestamp>)"
+
+          claude_args: |
+            --allowedTools "Bash(gh pr diff:*),Bash(gh pr comment:*),Bash(gh pr view:*),Bash(date:*)"
