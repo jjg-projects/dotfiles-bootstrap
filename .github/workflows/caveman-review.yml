@@ -1,11 +1,12 @@
 name: Caveman Review
 
-# Caveman-style code review on every PR — terse, one-line-per-finding,
-# severity-emoji prefixed, no praise. Single-LLM (claude-code) review,
-# stylistically counterpointing the (optional) full-narrative review
-# pattern. Useful for fast triage signal.
+# Caveman-style code review on every PR. Stylistic counterpoint to
+# `claude-code-review.yml` (deep ADR-coherence review): caveman-review is
+# terse, one-line-per-finding, no praise, severity-emoji prefixed. Useful
+# for fast triage and as a second voice (multi-lineage instinct from H1).
 #
-# Setup: needs the `CLAUDE_CODE_OAUTH_TOKEN` secret (repo or org-level).
+# Setup: reuses the `CLAUDE_CODE_OAUTH_TOKEN` secret already configured for
+# the other claude-action workflows. No extra setup needed.
 #
 # Skip review by:
 #   - Marking PR as draft, OR
@@ -13,10 +14,12 @@ name: Caveman Review
 #
 # Disable entirely: just delete this file. No other plumbing depends on it.
 #
-# Security note: all `github.event.*` references are limited to numeric PR
-# number and `github.repository` (controlled by GitHub). No untrusted
-# user-content (titles, bodies, branch refs) is interpolated into shell
-# `run:` blocks.
+# Contributor docs: see `docs/contributing/caveman-review.md`.
+#
+# Security note: all `github.event.*` references in this file are limited
+# to numeric PR number and `github.repository` (controlled by GitHub).
+# No untrusted user-content (titles, bodies, branch refs) is interpolated
+# into shell `run:` blocks.
 
 on:
   pull_request:
@@ -30,8 +33,8 @@ on:
 
 jobs:
   caveman-review:
-    # Self-hosted ARM64 Linux runner (Hetzner CAX21, jjg-runner-arm-1).
-    # Org-scoped; reachable from all jjg-projects repos.
+    # Self-hosted ARM64 Linux runner (Hetzner CAX21) — same as claude.yml
+    # and claude-code-review.yml. Pattern matches the rest of the repo.
     runs-on: [self-hosted, linux, arm64]
     if: |
       github.event_name == 'workflow_dispatch' ||
@@ -44,6 +47,21 @@ jobs:
       id-token: write
 
     steps:
+      - name: Verify CLAUDE_CODE_OAUTH_TOKEN secret present
+        # Fail fast if the secret is missing — otherwise anthropics/claude-code-action
+        # silently no-ops in ~12s and the check reports green even though no
+        # review ran. Catches missing org/repo secret distribution to new repos.
+        env:
+          OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          if [ -z "$OAUTH_TOKEN" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN secret missing on this repo."
+            echo "Fix: add as org-level secret at https://github.com/organizations/jjg-projects/settings/secrets/actions"
+            echo "Or per-repo: gh secret set CLAUDE_CODE_OAUTH_TOKEN --repo \$REPO"
+            exit 1
+          fi
+          echo "ok (len=${#OAUTH_TOKEN})"
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
